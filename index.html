@@ -1,0 +1,795 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Candy Shop Planner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=Figtree:wght@400;500;600&family=JetBrains+Mono:wght@500;600&display=swap">
+<style>
+/* Layout: inventory + feeder on the left, weekly recipes on the right, the plan full width underneath; one column on phones. */
+:root{
+  --bg:#e8eaf1; --surface:#f6f7fb; --well:#e9ecf4; --line:#d3d8e5; --fg:#1b1f2f; --muted:#596079;
+  --accent:#d65f28; --accent-ink:#ffffff;
+  --shadow:0 1px 0 rgba(255,255,255,.7) inset, 0 10px 28px -18px rgba(28,34,64,.35);
+  --float:0 16px 36px -10px rgba(20,26,56,.4);
+  --cedge:rgba(20,24,50,.14); --hi:rgba(255,255,255,.5);
+  --g-top:#6fd18e; --g-bot:#37a05a;
+  --w-top:#ffffff; --w-bot:#d9dcea;
+  --p-top:#a67df0; --p-bot:#7345c1;
+  --b-top:#69abff; --b-bot:#2e75d8;
+  --k-top:#4f5266; --k-bot:#1e1f29;
+  --ink:#ffffff; --ink-w:#4b5169;
+  --font-display:'Bricolage Grotesque','Avenir Next','Segoe UI',system-ui,sans-serif;
+  --font-body:'Figtree',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --font-mono:'JetBrains Mono',ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#12141c; --surface:#1b1e2a; --well:#141720; --line:#2c3144; --fg:#e8eaf3; --muted:#9097ad;
+    --accent:#f0874f; --accent-ink:#1b1008;
+    --shadow:0 1px 0 rgba(255,255,255,.05) inset, 0 10px 28px -18px rgba(0,0,0,.8);
+    --float:0 16px 36px -10px rgba(0,0,0,.7);
+    --cedge:rgba(255,255,255,.16); --hi:rgba(255,255,255,.28);
+    --g-top:#5ccf80; --g-bot:#2c8c4e;
+    --w-top:#f4f5fb; --w-bot:#c5c9de;
+    --p-top:#a883f0; --p-bot:#6a3db6;
+    --b-top:#62a2fa; --b-bot:#2a6dcb;
+    --k-top:#3d4053; --k-bot:#0c0d12;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#12141c; --surface:#1b1e2a; --well:#141720; --line:#2c3144; --fg:#e8eaf3; --muted:#9097ad;
+  --accent:#f0874f; --accent-ink:#1b1008;
+  --shadow:0 1px 0 rgba(255,255,255,.05) inset, 0 10px 28px -18px rgba(0,0,0,.8);
+  --float:0 16px 36px -10px rgba(0,0,0,.7);
+  --cedge:rgba(255,255,255,.16); --hi:rgba(255,255,255,.28);
+  --g-top:#5ccf80; --g-bot:#2c8c4e;
+  --w-top:#f4f5fb; --w-bot:#c5c9de;
+  --p-top:#a883f0; --p-bot:#6a3db6;
+  --b-top:#62a2fa; --b-bot:#2a6dcb;
+  --k-top:#3d4053; --k-bot:#0c0d12;
+  color-scheme:dark;
+}
+body{background:var(--bg);color:var(--fg);font-family:var(--font-body);font-size:15px;line-height:1.5;
+  padding-inline:clamp(16px,4vw,32px);padding-block:28px 56px}
+*,*::before,*::after{box-sizing:border-box}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.app{max-width:1080px;margin-inline:auto;display:flex;flex-direction:column;gap:22px}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px 24px}
+header .intro{min-width:0;flex:1 1 360px}
+h1{font-family:var(--font-display);font-weight:700;font-size:clamp(1.7rem,4.5vw,2.3rem);letter-spacing:-.025em;line-height:1.1;margin:0 0 6px;text-wrap:balance}
+.sub{margin:0;color:var(--muted);max-width:62ch}
+h2{font-family:var(--font-display);font-weight:650;font-size:1.1rem;letter-spacing:-.01em;margin:0}
+.label{font-size:.7rem;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:600}
+
+.layout{display:grid;gap:18px;grid-template-columns:minmax(0,1fr);align-items:start}
+.stack{display:flex;flex-direction:column;gap:18px;min-width:0}
+@media (min-width:980px){
+  .layout{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  .plan{grid-column:1/-1}
+}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:var(--shadow);min-width:0}
+.panel.compact{padding:14px 18px}
+.panel-head{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 12px;margin-bottom:12px}
+.panel-head .meta{display:flex;align-items:center;gap:10px}
+.fill-count{font-family:var(--font-mono);font-weight:600;font-size:.85rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.hint{margin:10px 0 0;font-size:.85rem;color:var(--muted)}
+
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:.5rem .85rem;font-weight:600;font-size:.88rem;cursor:pointer;transition:background .12s,transform .12s}
+.btn:hover{background:var(--well)}
+.btn:active{transform:translateY(1px)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.primary:hover{filter:brightness(1.07);background:var(--accent)}
+.btn.ghost{border-color:transparent;background:transparent;color:var(--muted);padding-inline:.5rem}
+.btn.ghost:hover{background:var(--well);color:var(--fg)}
+.btn:disabled{opacity:.45;cursor:not-allowed;transform:none}
+
+/* candies */
+.c0{--top:var(--g-top);--bot:var(--g-bot);--tag:var(--ink)}
+.c1{--top:var(--w-top);--bot:var(--w-bot);--tag:var(--ink-w)}
+.c2{--top:var(--p-top);--bot:var(--p-bot);--tag:var(--ink)}
+.c3{--top:var(--b-top);--bot:var(--b-bot);--tag:var(--ink)}
+.c4{--top:var(--k-top);--bot:var(--k-bot);--tag:var(--ink)}
+.candy{background:linear-gradient(155deg,var(--top),var(--bot));border:1px solid var(--cedge);color:var(--tag);
+  box-shadow:inset 0 2px 2px var(--hi),inset 0 -4px 8px rgba(0,0,0,.16),0 3px 6px -2px rgba(20,26,56,.35)}
+.tag{font-family:var(--font-mono);font-weight:700;font-size:clamp(.72rem,2.3vw,.95rem);letter-spacing:0;opacity:.95;pointer-events:none}
+
+.cell{position:relative;display:grid;place-items:center;width:100%;aspect-ratio:1;padding:0;border-radius:28%;cursor:pointer;
+  transition:transform .12s ease}
+.cell.empty{background:var(--well);border:1.5px dashed var(--line);cursor:default}
+button.cell.candy:hover{transform:translateY(-2px) scale(1.04)}
+.pop{animation:pop .2s ease-out}
+@keyframes pop{from{transform:scale(.55);opacity:.2}to{transform:none;opacity:1}}
+@media (prefers-reduced-motion:reduce){.pop{animation:none}.cell,.btn{transition:none}}
+
+.grid-inv{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:clamp(4px,1vw,7px);max-width:560px}
+.grid-inv .candy::after,.tgrid .candy::after{content:"\00d7";position:absolute;inset:0;display:grid;place-items:center;border-radius:inherit;
+  background:rgba(10,12,24,.5);color:#fff;font-size:1.4rem;opacity:0;transition:opacity .12s}
+.grid-inv .candy:hover::after,.grid-inv .candy:focus-visible::after,.tgrid .candy:hover::after,.tgrid .candy:focus-visible::after{opacity:1}
+
+.counts{list-style:none;margin:14px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:6px 14px}
+.counts li{display:flex;align-items:center;gap:6px;font-size:.85rem;color:var(--muted)}
+.counts .sw{width:14px;height:14px;border-radius:30%;box-shadow:none}
+.counts .n{font-family:var(--font-mono);font-weight:600;color:var(--fg);font-variant-numeric:tabular-nums;min-width:1.2ch;text-align:right}
+
+.feeder{display:flex;flex-wrap:wrap;gap:10px 14px}
+.feed{display:flex;flex-direction:column;align-items:center;gap:4px;background:none;border:0;padding:0;cursor:pointer;width:56px}
+.feed .cell{pointer-events:none}
+.feed:hover .cell{transform:translateY(-2px) scale(1.05)}
+.feed span.nm{font-size:.74rem;color:var(--muted);text-transform:capitalize}
+.feed:disabled{opacity:.4;cursor:not-allowed}
+.feed:disabled:hover .cell{transform:none}
+
+/* recipes */
+.rgrid{display:grid;grid-template-columns:1.5rem repeat(4,minmax(0,1fr)) 1.3rem repeat(4,minmax(0,1fr));gap:clamp(4px,1vw,7px);align-items:center;max-width:560px}
+.rhead{margin-bottom:6px}
+.rhead .label{text-align:left}
+.recipes{display:flex;flex-direction:column;gap:12px}
+.rnum{font-family:var(--font-mono);font-weight:600;color:var(--muted);font-size:.85rem;text-align:center}
+.arrow{color:var(--muted);justify-self:center;width:1.1rem;height:1.1rem}
+.slot.empty{background:var(--well);border:1.5px dashed var(--line)}
+.slot.empty::before{content:"+";color:var(--muted);font-size:1.1rem;opacity:.7}
+.slot.empty:hover{border-color:var(--accent);transform:translateY(-1px)}
+
+#picker{position:fixed;z-index:50;display:flex;gap:8px;padding:10px;background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:var(--float)}
+#picker[hidden]{display:none}
+.pk{width:42px;height:42px;border-radius:28%;display:grid;place-items:center;padding:0;cursor:pointer;transition:transform .1s}
+.pk:hover{transform:translateY(-2px) scale(1.06)}
+.pk.none{background:var(--well);border:1.5px dashed var(--line);color:var(--muted);font-size:1.2rem}
+.pk.sel{outline:2px solid var(--accent);outline-offset:2px}
+
+/* plan */
+.plan-controls{display:flex;flex-wrap:wrap;align-items:center;gap:12px 18px;margin-bottom:6px}
+/* amount view: one generic 5-colour counter used for inventory, recipe sides and target */
+[hidden]{display:none!important}
+.hdr-tools{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.amt{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px clamp(6px,2vw,14px);max-width:400px}
+.acol{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:0;user-select:none;-webkit-user-select:none}
+.acol .cell{max-width:56px;font-family:var(--font-mono);font-weight:700;font-size:1.4rem;font-variant-numeric:tabular-nums}
+.acol .cell.zero{opacity:.45;filter:saturate(.5)}
+.acol .nm{font-size:.74rem;color:var(--muted);text-transform:capitalize;max-width:100%;overflow-wrap:anywhere;text-align:center}
+.stp{display:grid;place-items:center;width:100%;max-width:56px;height:24px;border:0;background:transparent;color:var(--muted);border-radius:8px;cursor:pointer;padding:0}
+.stp:hover:not(:disabled){background:var(--well);color:var(--fg)}
+.stp:disabled{opacity:.25;cursor:not-allowed}
+.amt.compact{max-width:none;gap:2px clamp(2px,1vw,8px)}
+.amt.compact .cell{font-size:1.25rem}
+.amt.compact .nm{font-size:.66rem}
+.amt.compact .stp{height:20px}
+.arow{display:grid;grid-template-columns:1.5rem minmax(0,1fr) 1.3rem minmax(0,1fr);gap:6px;align-items:center}
+.arow .arrow{justify-self:center}
+.agroup::before{display:none;content:attr(data-label);margin-bottom:2px;font-size:.7rem;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.ahead{margin-bottom:-4px}
+@media (max-width:560px){
+  .arow{grid-template-columns:1.5rem minmax(0,1fr)}
+  .arow .arrow{transform:rotate(90deg)}
+  .ahead{display:none}
+  .agroup::before{display:block}
+  .amt .stp{height:34px;max-width:none}
+  .amt.compact .stp{height:32px}
+  .amt .stp svg{width:24px;height:24px}
+}
+.seg{position:relative;display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--well)}
+.seg input{position:absolute;opacity:0;pointer-events:none}
+.seg label{padding:.45rem .8rem;font-size:.86rem;font-weight:600;cursor:pointer;color:var(--muted)}
+.seg input:checked+label{background:var(--surface);color:var(--fg);box-shadow:inset 0 0 0 1.5px var(--accent);border-radius:9px}
+.seg input:focus-visible+label{outline:2px solid var(--accent);outline-offset:-2px}
+.target{margin-top:14px;display:flex;flex-direction:column;gap:10px}
+.tgrid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:clamp(4px,1vw,7px);max-width:340px}
+.tneeds{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;font-size:.85rem;color:var(--muted)}
+.status{min-height:1.4em;margin:8px 0 0;font-size:.88rem;color:var(--muted)}
+.result{margin-top:16px;display:flex;flex-direction:column;gap:16px}
+.ba{display:flex;flex-wrap:wrap;gap:10px 28px}
+.ba>div{display:flex;flex-direction:column;gap:6px}
+.stats{font-family:var(--font-mono);font-size:.85rem;font-weight:600;font-variant-numeric:tabular-nums}
+.tally{display:inline-flex;gap:4px}
+.mini{width:32px;height:32px;border-radius:28%;display:grid;place-items:center;font-family:var(--font-mono);font-weight:700;font-size:.9rem;font-variant-numeric:tabular-nums;box-shadow:none}
+.mini.zero{opacity:.3;filter:saturate(.3)}
+.seqbox{background:var(--well);border:1px solid var(--line);border-radius:12px;padding:12px 14px;font-family:var(--font-mono);font-size:.82rem;line-height:1.7;overflow-wrap:anywhere;user-select:text}
+.actions{display:flex;flex-wrap:wrap;gap:8px}
+ol.steps{list-style:none;margin:0;padding:0}
+ol.steps li{display:grid;grid-template-columns:2rem minmax(0,1fr) auto;align-items:center;gap:6px 12px;padding:10px 0;border-top:1px solid var(--line)}
+.idx{font-family:var(--font-mono);font-size:.8rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.what{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;min-width:0}
+.what strong{font-weight:600}
+.eq{display:inline-flex;align-items:center;gap:8px;color:var(--muted)}
+.dots{display:inline-flex;gap:3px}
+.dot{width:14px;height:14px;border-radius:30%;box-shadow:none;display:inline-block}
+.times{font-family:var(--font-mono);font-weight:600;font-size:.8rem;background:var(--well);border:1px solid var(--line);border-radius:999px;padding:0 .5rem}
+.empty-note{margin:16px 0 0;color:var(--muted);font-size:.92rem}
+@media (max-width:560px){
+  ol.steps li{grid-template-columns:2rem minmax(0,1fr)}
+  ol.steps li .after{grid-column:2}
+}
+</style>
+
+<main class="app">
+  <header>
+    <div class="intro">
+      <h1>Candy Shop Planner</h1>
+      <p class="sub">Plan the best crafts for this week's candy recipes.</p>
+    </div>
+    <div class="hdr-tools">
+      <div class="seg" role="radiogroup" aria-label="Input style">
+        <input type="radio" name="view" id="view-grid" value="grid" checked><label for="view-grid">Grid</label>
+        <input type="radio" name="view" id="view-amount" value="amount"><label for="view-amount">Amount</label>
+      </div>
+    </div>
+  </header>
+
+  <div class="layout">
+    <div class="stack">
+      <section class="panel" aria-labelledby="inv-title">
+        <div class="panel-head">
+          <h2 id="inv-title">Inventory</h2>
+          <div class="meta">
+            <span class="fill-count" id="fill-count">0 / 30</span>
+            <button type="button" class="btn ghost" id="clear-inv">Clear</button>
+          </div>
+        </div>
+        <div class="grid-inv" id="inv-grid"></div>
+        <ul class="counts" id="counts" aria-label="Candies by type"></ul>
+        <div id="inv-amt" hidden></div>
+        <p class="hint" id="inv-hint"></p>
+      </section>
+
+      <section class="panel compact" id="feed-panel" aria-labelledby="feed-title">
+        <div class="panel-head" style="margin-bottom:10px">
+          <h2 id="feed-title">Add candy</h2>
+        </div>
+        <div class="feeder" id="feeder"></div>
+      </section>
+    </div>
+
+    <section class="panel" aria-labelledby="rec-title">
+      <div class="panel-head">
+        <h2 id="rec-title">This week's recipes</h2>
+        <button type="button" class="btn ghost" id="clear-rec">Clear recipes</button>
+      </div>
+      <div class="rgrid rhead" id="rhead" aria-hidden="true">
+        <span></span><span class="label" style="grid-column:2 / span 4">Ingredients</span><span></span><span class="label" style="grid-column:7 / span 4">Results</span>
+      </div>
+      <div class="recipes" id="recipes"></div>
+      <p class="hint" id="rec-hint"></p>
+    </section>
+
+    <section class="panel plan" aria-labelledby="plan-title">
+      <div class="panel-head" style="margin-bottom:8px">
+        <h2 id="plan-title">Plan</h2>
+      </div>
+      <div class="plan-controls">
+        <div class="seg" role="radiogroup" aria-label="Goal">
+          <input type="radio" name="mode" id="mode-target" value="target" checked><label for="mode-target">Target</label>
+          <input type="radio" name="mode" id="mode-fill" value="fill"><label for="mode-fill">Fill first</label>
+        </div>
+        <button type="button" class="btn primary" id="solve">Find best sequence</button>
+      </div>
+      <p class="hint" id="mode-hint" style="margin-top:4px"></p>
+      <div class="target" id="target-box" hidden>
+        <div class="panel-head" style="margin-bottom:0">
+          <span class="label">Target recipe</span>
+          <div class="meta">
+            <span class="fill-count" id="target-count">0 / 18</span>
+            <button type="button" class="btn ghost" id="clear-target">Clear</button>
+          </div>
+        </div>
+        <div class="tgrid" id="target-grid"></div>
+        <div id="target-amt" hidden></div>
+        <div class="feeder" id="target-feeder"></div>
+        <div class="tneeds" id="target-needs"></div>
+      </div>
+      <p class="status" id="status" role="status" aria-live="polite"></p>
+      <div class="result" id="result" hidden></div>
+      <p class="empty-note" id="plan-empty">Add your candies and recipes, then find the best sequence.</p>
+    </section>
+  </div>
+</main>
+
+<div id="picker" hidden role="menu" aria-label="Choose a candy"></div>
+
+<script>
+// SOLVER-START
+function solveCandies(start, recipes, mode, cap, need){
+  var T=[], a, b, c, r, i, k, tgt=(mode==='target');
+  if(!need) need=[0,0,0,0,0];
+  for(i=0;i<recipes.length;i++) T.push({kind:'s', n:recipes[i].n, inp:recipes[i].inp, out:recipes[i].out});
+  for(a=0;a<5;a++) for(b=a;b<5;b++) for(c=b;c<5;c++){
+    for(r=0;r<5;r++){
+      var inp=[0,0,0,0,0], out=[0,0,0,0,0];
+      inp[a]++; inp[b]++; inp[c]++; out[r]=1;
+      T.push({kind:'g', n:0, inp:inp, out:out});
+    }
+  }
+  var nT=T.length, M=[1,31,961,29791,923521];
+  var inpA=new Int8Array(nT*5), outA=new Int8Array(nT*5), dk=new Int32Array(nT), net=new Int8Array(nT);
+  for(i=0;i<nT;i++){
+    var d=0, s=0;
+    for(k=0;k<5;k++){ inpA[i*5+k]=T[i].inp[k]; outA[i*5+k]=T[i].out[k]; d+=(T[i].out[k]-T[i].inp[k])*M[k]; s+=T[i].out[k]-T[i].inp[k]; }
+    dk[i]=d; net[i]=s;
+  }
+  var MAXN=330000;
+  var counts=new Uint8Array(MAXN*5), keys=new Int32Array(MAXN), tot=new Uint8Array(MAXN);
+  var parent=new Int32Array(MAXN), act=new Int16Array(MAXN), depth=new Uint16Array(MAXN);
+  var seen=new Map(), n=0;
+  function shortfall(idx){
+    var base=idx*5, s=0, d;
+    for(var q=0;q<5;q++){ d=need[q]-counts[base+q]; if(d>0) s+=d; }
+    return s;
+  }
+  function score(idx){
+    /* fill first: most candies, then the most even mix */
+    var base=idx*5, sq=0, v;
+    for(var q=0;q<5;q++){ v=counts[base+q]; sq+=v*v; }
+    return tot[idx]*10000-sq;
+  }
+  var key0=0, t0=0;
+  for(k=0;k<5;k++){ counts[k]=start[k]; key0+=start[k]*M[k]; t0+=start[k]; }
+  keys[0]=key0; tot[0]=t0; parent[0]=-1; act[0]=-1; seen.set(key0,0); n=1;
+  var best=0, bestScore=tgt?0:score(0), bestShort=tgt?shortfall(0):0;
+  search:
+  for(var qi=0; qi<n && !(tgt&&bestShort===0); qi++){
+    var base=qi*5, tq=tot[qi];
+    for(var t=0;t<nT;t++){
+      if(tq+net[t]>cap) continue;
+      var ok=true, tb=t*5, cv, fl;
+      for(k=0;k<5;k++){
+        cv=counts[base+k];
+        if(cv<inpA[tb+k]){ ok=false; break; }
+        if(tgt){
+          /* a type that already covers the target is never spent below the target amount;
+             a type that is short may be spent freely as an intermediate */
+          fl=cv>=need[k]?need[k]:0;
+          if(cv-inpA[tb+k]+outA[tb+k]<fl){ ok=false; break; }
+        }
+      }
+      if(!ok) continue;
+      var nk=keys[qi]+dk[t];
+      if(seen.has(nk)) continue;
+      var ni=n++, nb=ni*5;
+      for(k=0;k<5;k++) counts[nb+k]=counts[base+k]-inpA[tb+k]+outA[tb+k];
+      keys[ni]=nk; tot[ni]=tq+net[t]; parent[ni]=qi; act[ni]=t; depth[ni]=depth[qi]+1; seen.set(nk,ni);
+      if(tgt){
+        var sh=shortfall(ni);
+        if(sh<bestShort || (sh===bestShort && depth[ni]===depth[best] && tot[ni]>tot[best])){ bestShort=sh; best=ni; }
+        if(bestShort===0) break search;
+      }else{
+        var sc=score(ni);
+        if(sc>bestScore){ bestScore=sc; best=ni; }
+      }
+    }
+  }
+  var path=[], cur=best;
+  while(parent[cur]!==-1){ path.push(act[cur]); cur=parent[cur]; }
+  path.reverse();
+  var state=start.slice(), steps=[];
+  for(i=0;i<path.length;i++){
+    var x=T[path[i]];
+    for(k=0;k<5;k++) state[k]=state[k]-x.inp[k]+x.out[k];
+    steps.push({kind:x.kind, n:x.n, inp:x.inp, out:x.out, after:state.slice()});
+  }
+  return {steps:steps, final:state, explored:n};
+}
+// SOLVER-END
+
+(function(){
+  var NAMES=['green','white','purple','blue','black'];
+  var TAGS=['Gr','Wh','Pu','Bl','Bk'];
+  var CAP=30, SLOTS=4, KEY='candy-shop-planner-v1';
+  var MODE_HINT={
+    target:'Reach the recipe below in as few crafts as possible.',
+    fill:'Make as many candies as possible.'
+  };
+  var HINTS={
+    grid:{
+      inv:'Click a candy to remove it.',
+      rec:'Click a slot to choose a candy. Any 3 candies can be traded for 1.'
+    },
+    amount:{
+      inv:'Click to add, right-click to remove.',
+      rec:'Click to add, right-click to remove. Any 3 candies can be traded for 1.'
+    }
+  };
+  var TSLOTS=18;
+  function blank(){ return {inp:[null,null,null,null], out:[null,null,null,null]}; }
+  function blankTarget(){ var t=[]; for(var i=0;i<TSLOTS;i++) t.push(null); return t; }
+  var state={inv:[], recipes:[blank(),blank(),blank(),blank()], mode:'target', view:'grid', target:blankTarget()};
+  var result=null, lastAdded=-1, lastTargetAdded=-1, pickerTarget=null;
+
+  var $=function(id){ return document.getElementById(id); };
+  var invGrid=$('inv-grid'), countsEl=$('counts'), fillCount=$('fill-count'), feeder=$('feeder');
+  var recipesEl=$('recipes'), picker=$('picker'), statusEl=$('status'), resultEl=$('result');
+  var invAmt=$('inv-amt'), targetAmt=$('target-amt');
+  var solveBtn=$('solve'), planEmpty=$('plan-empty');
+
+  /* persistence: a per-viewer convenience, the page works without it */
+  function save(){ try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(e){} }
+  function load(){
+    try{
+      var raw=localStorage.getItem(KEY); if(!raw) return;
+      var s=JSON.parse(raw), okT=function(v){ return v===null||(Number.isInteger(v)&&v>=0&&v<5); };
+      if(Array.isArray(s.inv) && s.inv.length<=CAP && s.inv.every(function(v){return Number.isInteger(v)&&v>=0&&v<5;})) state.inv=s.inv.slice().sort(function(x,y){ return x-y; });
+      if(Array.isArray(s.recipes) && s.recipes.length===4 && s.recipes.every(function(r){
+        return r&&Array.isArray(r.inp)&&Array.isArray(r.out)&&r.inp.length===SLOTS&&r.out.length===SLOTS&&r.inp.every(okT)&&r.out.every(okT);
+      })) state.recipes=s.recipes;
+      if(Array.isArray(s.target) && s.target.length===TSLOTS && s.target.every(okT)) state.target=packedTarget(s.target);
+      if(s.mode==='fill'||s.mode==='target') state.mode=s.mode;
+      if(s.view==='grid'||s.view==='amount') state.view=s.view;
+    }catch(e){}
+  }
+
+  function countsOf(list){ var c=[0,0,0,0,0]; list.forEach(function(t){ c[t]++; }); return c; }
+  function vec(slots){ var c=[0,0,0,0,0]; slots.forEach(function(t){ if(t!==null) c[t]++; }); return c; }
+  function sum(v){ return v.reduce(function(a,b){return a+b;},0); }
+
+  /* amount view: a generic 5-colour counter. Each group (inventory, a recipe side, the target)
+     is edited as five counts and written back to the same slot arrays the grid view uses. */
+  var CHEV_UP='<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M6 15l6-6 6 6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  var CHEV_DOWN='<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  function expand(c){ var a=[]; c.forEach(function(n,t){ for(var i=0;i<n;i++) a.push(t); }); return a; }
+  function padTo(a,len){ a=a.slice(0,len); while(a.length<len) a.push(null); return a; }
+  function groupRef(key){
+    if(key==='inv') return {cap:CAP, get:function(){ return countsOf(state.inv); }, set:function(c){ state.inv=expand(c); }};
+    if(key==='tgt') return {cap:TSLOTS, get:function(){ return vec(state.target); }, set:function(c){ state.target=padTo(expand(c),TSLOTS); }};
+    var ri=Number(key.charAt(1)), side=key.charAt(2)==='i'?'inp':'out';
+    return {cap:SLOTS, get:function(){ return vec(state.recipes[ri][side]); }, set:function(c){ state.recipes[ri][side]=padTo(expand(c),SLOTS); }};
+  }
+  function amountHtml(key,compact){
+    var ref=groupRef(key), c=ref.get(), full=sum(c)>=ref.cap;
+    var h='<div class="amt'+(compact?' compact':'')+'">';
+    for(var t=0;t<5;t++){
+      var d='data-g="'+key+'" data-t="'+t+'"';
+      h+='<div class="acol">'+
+        '<button type="button" class="stp" '+d+' data-a="up" aria-label="Add one '+NAMES[t]+'"'+(full?' disabled':'')+'>'+CHEV_UP+'</button>'+
+        '<button type="button" class="cell candy c'+t+(c[t]?'':' zero')+'" '+d+' data-a="blob" aria-label="'+NAMES[t]+': '+c[t]+'">'+c[t]+'</button>'+
+        '<button type="button" class="stp" '+d+' data-a="down" aria-label="Remove one '+NAMES[t]+'"'+(c[t]?'':' disabled')+'>'+CHEV_DOWN+'</button>'+
+        '<span class="nm">'+NAMES[t]+'</span></div>';
+    }
+    return h+'</div>';
+  }
+  function nudge(key,t,delta,role){
+    var ref=groupRef(key), c=ref.get();
+    if(delta>0 && sum(c)>=ref.cap) return;
+    if(delta<0 && c[t]<=0) return;
+    c[t]+=delta; ref.set(c);
+    lastAdded=-1; lastTargetAdded=-1; invalidate(); renderInv(); renderRecipes(); renderTarget(); save();
+    var el=document.querySelector('[data-g="'+key+'"][data-t="'+t+'"][data-a="'+role+'"]');
+    if(el && !el.disabled && document.activeElement===document.body) el.focus();
+  }
+  document.addEventListener('click',function(e){
+    var b=e.target.closest('[data-a]'); if(!b||b.disabled) return;
+    nudge(b.dataset.g,Number(b.dataset.t),b.dataset.a==='down'?-1:1,b.dataset.a);
+  });
+  document.addEventListener('contextmenu',function(e){
+    var b=e.target.closest('button[data-a="blob"]'); if(!b) return;
+    e.preventDefault();
+    nudge(b.dataset.g,Number(b.dataset.t),-1,'blob');
+  });
+
+  /* inventory */
+  function renderInv(){
+    var h='';
+    for(var i=0;i<CAP;i++){
+      var t=state.inv[i];
+      if(t===undefined) h+='<div class="cell empty" aria-hidden="true"></div>';
+      else h+='<button type="button" class="cell candy c'+t+(i===lastAdded?' pop':'')+'" data-i="'+i+'" aria-label="Remove '+NAMES[t]+' candy"><span class="tag">'+TAGS[t]+'</span></button>';
+    }
+    invGrid.innerHTML=h;
+    var amount=state.view==='amount';
+    invGrid.hidden=amount; countsEl.hidden=amount; invAmt.hidden=!amount;
+    invAmt.innerHTML=amount?amountHtml('inv',false):'';
+    fillCount.textContent=state.inv.length+' / '+CAP;
+    var c=countsOf(state.inv);
+    countsEl.innerHTML=NAMES.map(function(nm,t){
+      return '<li><span class="sw candy c'+t+'"></span><span class="n">'+c[t]+'</span><span>'+nm+'</span></li>';
+    }).join('');
+    var full=state.inv.length>=CAP;
+    Array.prototype.forEach.call(feeder.children,function(b){ b.disabled=full; });
+  }
+  function feederHtml(attr){
+    return NAMES.map(function(nm,t){
+      return '<button type="button" class="feed" '+attr+'="'+t+'" aria-label="Add '+nm+' candy"><span class="cell candy c'+t+'"><span class="tag">'+TAGS[t]+'</span></span><span class="nm">'+nm+'</span></button>';
+    }).join('');
+  }
+  function renderFeeder(){
+    feeder.innerHTML=feederHtml('data-t');
+    $('target-feeder').innerHTML=feederHtml('data-tt');
+  }
+  invGrid.addEventListener('click',function(e){
+    var b=e.target.closest('button[data-i]'); if(!b) return;
+    state.inv.splice(Number(b.dataset.i),1);
+    state.inv.sort(function(x,y){ return x-y; });
+    lastAdded=-1; invalidate(); renderInv(); save();
+  });
+  feeder.addEventListener('click',function(e){
+    var b=e.target.closest('button[data-t]'); if(!b||state.inv.length>=CAP) return;
+    var t=Number(b.dataset.t);
+    state.inv.push(t);
+    state.inv.sort(function(x,y){ return x-y; });
+    lastAdded=state.inv.lastIndexOf(t); invalidate(); renderInv(); save();
+  });
+  $('clear-inv').addEventListener('click',function(){ state.inv=[]; lastAdded=-1; invalidate(); renderInv(); save(); });
+
+  /* recipes */
+  var ARROW='<svg class="arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h15M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  function slotHtml(ri,side,i){
+    var v=state.recipes[ri][side][i];
+    var what='Recipe '+(ri+1)+' '+(side==='inp'?'ingredient ':'result ')+(i+1)+': '+(v===null?'empty':NAMES[v])+'. Change';
+    var cls=v===null?'cell slot empty':'cell slot candy c'+v;
+    return '<button type="button" class="'+cls+'" data-r="'+ri+'" data-s="'+side+'" data-i="'+i+'" aria-haspopup="menu" aria-label="'+what+'">'+(v===null?'':'<span class="tag">'+TAGS[v]+'</span>')+'</button>';
+  }
+  function renderRecipes(){
+    var h='';
+    if(state.view==='amount'){
+      h='<div class="arow ahead" aria-hidden="true"><span></span><span class="label">Ingredients</span><span></span><span class="label">Results</span></div>';
+      for(var ai=0;ai<4;ai++){
+        h+='<div class="arow" role="group" aria-label="Recipe '+(ai+1)+'"><span class="rnum">'+(ai+1)+'</span>'+
+          '<div class="agroup" data-label="Ingredients">'+amountHtml('r'+ai+'i',true)+'</div>'+ARROW+
+          '<div class="agroup" data-label="Results">'+amountHtml('r'+ai+'o',true)+'</div></div>';
+      }
+      recipesEl.innerHTML=h;
+      return;
+    }
+    for(var ri=0;ri<4;ri++){
+      h+='<div class="rgrid" role="group" aria-label="Recipe '+(ri+1)+'"><span class="rnum">'+(ri+1)+'</span>';
+      for(var i=0;i<SLOTS;i++) h+=slotHtml(ri,'inp',i);
+      h+=ARROW;
+      for(i=0;i<SLOTS;i++) h+=slotHtml(ri,'out',i);
+      h+='</div>';
+    }
+    recipesEl.innerHTML=h;
+  }
+  recipesEl.addEventListener('click',function(e){
+    var b=e.target.closest('button.slot'); if(!b) return;
+    if(!picker.hidden && pickerTarget===b){ closePicker(); return; }
+    openPicker(b);
+  });
+  $('clear-rec').addEventListener('click',function(){
+    state.recipes=[blank(),blank(),blank(),blank()]; closePicker(); invalidate(); renderRecipes(); save();
+  });
+
+  /* picker */
+  picker.innerHTML=[0,1,2,3,4].map(function(t){
+    return '<button type="button" class="pk candy c'+t+'" data-v="'+t+'" role="menuitemradio" aria-label="'+NAMES[t]+'" title="'+NAMES[t]+'"><span class="tag">'+TAGS[t]+'</span></button>';
+  }).join('')+'<button type="button" class="pk none" data-v="x" role="menuitemradio" aria-label="Empty" title="Empty">×</button>';
+
+  function curSlot(b){ return state.recipes[Number(b.dataset.r)][b.dataset.s][Number(b.dataset.i)]; }
+  function setSlot(b,v){ state.recipes[Number(b.dataset.r)][b.dataset.s][Number(b.dataset.i)]=v; }
+  function slotSelector(b){
+    return 'button.slot[data-r="'+b.dataset.r+'"][data-s="'+b.dataset.s+'"][data-i="'+b.dataset.i+'"]';
+  }
+
+  /* target recipe: works like the inventory, candies stay packed and sorted */
+  var targetGrid=$('target-grid'), targetNeeds=$('target-needs'), targetFeeder=$('target-feeder');
+  function packedTarget(list){
+    return padTo(list.filter(function(v){ return v!==null; }).sort(function(x,y){ return x-y; }),TSLOTS);
+  }
+  function renderTarget(){
+    var h='', list=state.target.filter(function(v){ return v!==null; });
+    for(var i=0;i<TSLOTS;i++){
+      var v=list[i];
+      if(v===undefined) h+='<div class="cell empty" aria-hidden="true"></div>';
+      else h+='<button type="button" class="cell candy c'+v+(i===lastTargetAdded?' pop':'')+'" data-i="'+i+'" aria-label="Remove '+NAMES[v]+' candy"><span class="tag">'+TAGS[v]+'</span></button>';
+    }
+    targetGrid.innerHTML=h;
+    var amount=state.view==='amount';
+    targetGrid.hidden=amount; targetNeeds.hidden=amount; targetFeeder.hidden=amount; targetAmt.hidden=!amount;
+    targetAmt.innerHTML=amount?amountHtml('tgt',false):'';
+    var nv=vec(state.target), full=sum(nv)>=TSLOTS;
+    Array.prototype.forEach.call(targetFeeder.children,function(b){ b.disabled=full; });
+    $('target-count').textContent=sum(nv)+' / '+TSLOTS;
+    targetNeeds.innerHTML=sum(nv)?'<span>Needs</span>'+tally(nv):'<span>Add candies to build the recipe.</span>';
+  }
+  function syncMode(){
+    $('target-box').hidden=state.mode!=='target';
+    $('mode-hint').textContent=MODE_HINT[state.mode];
+  }
+  /* grid or amount view: one switch for every part of the tool */
+  function syncView(){
+    var amount=state.view==='amount';
+    closePicker();
+    $('feed-panel').hidden=amount;
+    $('rhead').hidden=amount;
+    $('inv-hint').textContent=HINTS[state.view].inv;
+    $('rec-hint').textContent=HINTS[state.view].rec;
+    renderInv(); renderRecipes(); renderTarget();
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('input[name="view"]'),function(r){
+    r.addEventListener('change',function(){ state.view=r.value; syncView(); save(); });
+  });
+  targetGrid.addEventListener('click',function(e){
+    var b=e.target.closest('button[data-i]'); if(!b) return;
+    var list=state.target.filter(function(v){ return v!==null; });
+    list.splice(Number(b.dataset.i),1);
+    state.target=packedTarget(list);
+    lastTargetAdded=-1; invalidate(); renderTarget(); save();
+  });
+  targetFeeder.addEventListener('click',function(e){
+    var b=e.target.closest('button[data-tt]'); if(!b) return;
+    var list=state.target.filter(function(v){ return v!==null; });
+    if(list.length>=TSLOTS) return;
+    var t=Number(b.dataset.tt);
+    list.push(t);
+    state.target=packedTarget(list);
+    lastTargetAdded=state.target.lastIndexOf(t); invalidate(); renderTarget(); save();
+  });
+  $('clear-target').addEventListener('click',function(){
+    state.target=blankTarget(); closePicker(); invalidate(); renderTarget(); save();
+  });
+  function placePicker(){
+    if(!pickerTarget) return;
+    var r=pickerTarget.getBoundingClientRect(), pw=picker.offsetWidth, ph=picker.offsetHeight;
+    var left=Math.max(8,Math.min(r.left+r.width/2-pw/2,window.innerWidth-pw-8));
+    var top=r.bottom+8; if(top+ph>window.innerHeight-8) top=Math.max(8,r.top-ph-8);
+    picker.style.left=left+'px'; picker.style.top=top+'px';
+  }
+  function openPicker(b){
+    pickerTarget=b; picker.hidden=false;
+    var cur=curSlot(b);
+    Array.prototype.forEach.call(picker.children,function(p){
+      var on=p.dataset.v==='x'?cur===null:Number(p.dataset.v)===cur;
+      p.setAttribute('aria-checked',on?'true':'false'); p.classList.toggle('sel',on);
+    });
+    placePicker();
+    var f=picker.querySelector('.sel')||picker.firstElementChild; f.focus();
+  }
+  function closePicker(refocus){
+    if(picker.hidden) return;
+    picker.hidden=true;
+    if(refocus && pickerTarget) pickerTarget.focus();
+    pickerTarget=null;
+  }
+  picker.addEventListener('click',function(e){
+    var p=e.target.closest('button[data-v]'); if(!p||!pickerTarget) return;
+    var b=pickerTarget, v=p.dataset.v==='x'?null:Number(p.dataset.v);
+    setSlot(b,v);
+    var sel=slotSelector(b);
+    picker.hidden=true; pickerTarget=null;
+    invalidate(); renderRecipes(); renderTarget(); save();
+    var nb=document.querySelector(sel); if(nb) nb.focus();
+  });
+  document.addEventListener('pointerdown',function(e){
+    if(picker.hidden) return;
+    if(picker.contains(e.target)||(pickerTarget&&pickerTarget.contains(e.target))) return;
+    closePicker();
+  });
+  document.addEventListener('keydown',function(e){ if(e.key==='Escape') closePicker(true); });
+  window.addEventListener('resize',function(){ closePicker(); });
+  window.addEventListener('scroll',function(){ closePicker(); },true);
+
+  /* plan */
+  function invalidate(){
+    if(result){ result=null; resultEl.hidden=true; resultEl.innerHTML=''; planEmpty.hidden=false; }
+    statusEl.textContent='';
+  }
+  function runSolve(args){
+    return new Promise(function(resolve){
+      var done=false, w=null, url=null, timer=null;
+      function finish(v){ if(done) return; done=true; clearTimeout(timer); if(w){ w.terminate(); } if(url){ URL.revokeObjectURL(url); } resolve(v); }
+      function sync(){ if(done) return; setTimeout(function(){ finish(solveCandies.apply(null,args)); },20); }
+      try{
+        var src='self.onmessage=function(e){var f='+solveCandies.toString()+';postMessage(f.apply(null,e.data));};';
+        url=URL.createObjectURL(new Blob([src],{type:'text/javascript'}));
+        w=new Worker(url);
+        w.onmessage=function(e){ finish(e.data); };
+        w.onerror=function(){ if(w){ w.terminate(); w=null; } sync(); };
+        timer=setTimeout(function(){ if(w){ w.terminate(); w=null; } sync(); },8000);
+        w.postMessage(args);
+      }catch(err){ sync(); }
+    });
+  }
+  function phrase(v){
+    var parts=[], single=v.filter(function(x){return x>0;}).length===1;
+    v.forEach(function(c,t){ if(c>0) parts.push((single||c>1?c+' ':'')+NAMES[t]); });
+    return parts.join(' + ');
+  }
+  function stepLabel(s){ return s.kind==='s' ? 'Recipe '+s.n : phrase(s.inp)+' → '+phrase(s.out); }
+  function dots(v){
+    var h='<span class="dots">';
+    v.forEach(function(c,t){ for(var q=0;q<c;q++) h+='<i class="dot candy c'+t+'"></i>'; });
+    return h+'</span>';
+  }
+  function tally(v){
+    return '<span class="tally">'+v.map(function(c,t){
+      return '<span class="mini candy c'+t+(c?'':' zero')+'" title="'+c+' '+NAMES[t]+'">'+c+'</span>';
+    }).join('')+'</span>';
+  }
+  function group(steps){
+    var out=[];
+    steps.forEach(function(s){
+      var id=s.kind+s.n+'|'+s.inp.join('')+'|'+s.out.join(''), last=out[out.length-1];
+      if(last&&last.id===id){ last.times++; last.after=s.after; }
+      else out.push({id:id,step:s,times:1,after:s.after});
+    });
+    return out;
+  }
+  function missing(v,need){
+    var parts=[];
+    need.forEach(function(n,t){ var d=n-v[t]; if(d>0) parts.push(d+' '+NAMES[t]); });
+    return parts.join(', ');
+  }
+  function renderResult(start,sol,need){
+    var groups=group(sol.steps), total=sum(sol.final), tgt=state.mode==='target';
+    var gap=tgt?missing(sol.final,need):'';
+    if(!sol.steps.length){
+      resultEl.hidden=false; planEmpty.hidden=true;
+      var msg=!tgt ? 'No craft improves this inventory.'
+        : (gap ? 'No craft gets closer to the target. Missing '+gap+'.' : 'You already have everything for the target.');
+      resultEl.innerHTML='<div class="ba"><div><span class="label">Inventory</span>'+tally(start)+'</div>'+
+        (tgt?'<div><span class="label">Target</span>'+tally(need)+'</div>':'')+'</div>'+
+        '<p class="empty-note" style="margin:0">'+msg+'</p>';
+      statusEl.textContent='';
+      return;
+    }
+    var text=groups.map(function(g){ return stepLabel(g.step)+(g.times>1?' ×'+g.times:''); }).join(', ');
+    var h='<div class="ba"><div><span class="label">Before</span>'+tally(start)+'</div><div><span class="label">After</span>'+tally(sol.final)+'</div>'+
+      (tgt?'<div><span class="label">Target</span>'+tally(need)+'</div>':'')+'</div>';
+    if(tgt){
+      h+='<div class="stats">'+(gap?'Closest possible, still missing '+gap+'. ':'Target reached. ')+sol.steps.length+' craft'+(sol.steps.length===1?'':'s')+', '+total+' candies left</div>';
+    }else{
+      h+='<div class="stats">'+sum(start)+' → '+total+' candies in '+sol.steps.length+' craft'+(sol.steps.length===1?'':'s')+'</div>';
+    }
+    h+='<div><span class="label">Sequence</span><div class="seqbox" id="seq" style="margin-top:6px">'+text+'</div></div>';
+    h+='<div class="actions"><button type="button" class="btn" id="copy">Copy sequence</button><button type="button" class="btn" id="apply">Use result as inventory</button></div>';
+    h+='<ol class="steps">';
+    groups.forEach(function(g,i){
+      var s=g.step;
+      h+='<li><span class="idx">'+(i+1)+'</span><span class="what">'+
+        (s.kind==='s'?'<strong>Recipe '+s.n+'</strong>':'<strong>3 for 1</strong>')+
+        '<span class="eq">'+dots(s.inp)+'→'+dots(s.out)+'</span>'+
+        (g.times>1?'<span class="times">×'+g.times+'</span>':'')+
+        '</span><span class="after">'+tally(g.after)+'</span></li>';
+    });
+    h+='</ol>';
+    resultEl.innerHTML=h; resultEl.hidden=false; planEmpty.hidden=true;
+    result={start:start,sol:sol,text:text};
+    $('copy').addEventListener('click',copySeq);
+    $('apply').addEventListener('click',applyResult);
+  }
+  function copySeq(){
+    var btn=$('copy'), el=$('seq');
+    function flash(m){ btn.textContent=m; setTimeout(function(){ if(btn.isConnected) btn.textContent='Copy sequence'; },1600); }
+    function fallback(){
+      var r=document.createRange(); r.selectNodeContents(el);
+      var s=window.getSelection(); s.removeAllRanges(); s.addRange(r); flash('Selected, press copy');
+    }
+    try{ navigator.clipboard.writeText(result.text).then(function(){ flash('Copied'); },fallback); }catch(e){ fallback(); }
+  }
+  function applyResult(){
+    var f=result.sol.final, list=[];
+    f.forEach(function(c,t){ for(var q=0;q<c;q++) list.push(t); });
+    state.inv=list; lastAdded=-1; renderInv(); save();
+    result=null; resultEl.hidden=true; resultEl.innerHTML=''; planEmpty.hidden=false;
+    statusEl.textContent='Inventory updated.';
+  }
+  solveBtn.addEventListener('click',function(){
+    if(!state.inv.length){ statusEl.textContent='Add some candies first.'; return; }
+    var start=countsOf(state.inv), rs=[];
+    state.recipes.forEach(function(r,i){
+      var inp=vec(r.inp), out=vec(r.out);
+      if(sum(inp)>0&&sum(out)>0) rs.push({n:i+1,inp:inp,out:out});
+    });
+    var need=vec(state.target);
+    if(state.mode==='target' && !sum(need)){ statusEl.textContent='Fill in the target recipe first.'; return; }
+    solveBtn.disabled=true; statusEl.textContent='Searching…';
+    runSolve([start,rs,state.mode,CAP,need]).then(function(sol){
+      solveBtn.disabled=false; statusEl.textContent='';
+      var note=rs.length+' of 4 recipes in use.';
+      renderResult(start,sol,need);
+      if(sol.steps.length) statusEl.textContent=note;
+    });
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('input[name="mode"]'),function(r){
+    r.addEventListener('change',function(){
+      state.mode=r.value; closePicker(); syncMode(); invalidate(); save();
+    });
+  });
+  load();
+  $('mode-'+state.mode).checked=true;
+  $('view-'+state.view).checked=true;
+  syncMode();
+  renderFeeder();
+  syncView();
+})();
+</script>
+
+</body></html>
